@@ -1,6 +1,12 @@
+// @ts-ignore: side-effect polyfill import may lack types in this environment
 import 'react-native-url-polyfill/auto';
+// @ts-ignore: expo-secure-store types might not be available in the build environment
 import * as SecureStore from 'expo-secure-store';
-import { createClient, processLock } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
+
+// In some environments (e.g. RN TypeScript builds) `process` may not be defined
+// or have type declarations. Declare it here to avoid TS errors when accessing env vars.
+declare const process: any;
 
 // SecureStore-backed adapter so Supabase can persist the auth session
 // on-device (Keychain on iOS, Keystore on Android).
@@ -10,8 +16,8 @@ const ExpoSecureStoreAdapter = {
   removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 };
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL as string;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string;
+const supabaseUrl = process?.env?.EXPO_PUBLIC_SUPABASE_URL as string;
+const supabaseAnonKey = process?.env?.EXPO_PUBLIC_SUPABASE_ANON_KEY as string;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
@@ -26,6 +32,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
-    lock: processLock,
+    // omit deprecated processLock
   },
 });
