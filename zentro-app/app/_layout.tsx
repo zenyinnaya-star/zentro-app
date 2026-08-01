@@ -31,7 +31,7 @@ export default function RootLayout() {
     <>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
-        {session ? (
+        {session || true ? (
           <Stack.Screen name="(tabs)" />
         ) : (
           <>

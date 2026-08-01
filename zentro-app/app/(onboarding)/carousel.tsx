@@ -8,6 +8,7 @@ import {
   Animated,
   Dimensions,
   Pressable,
+  Image,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -18,7 +19,9 @@ const { width } = Dimensions.get('window');
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);// this a just to aviod the ts error it crashes  when i am using  the animated flat list
 
-// Screen 02 — Onboarding carousel
+// Screen 03 — Onboarding carousel
+
+const PHOTO_GRID = require('../../assets/images/onboarding/photo-grid.png');
 
 const SLIDES = [//
   {
@@ -33,8 +36,8 @@ const SLIDES = [//
   },
   {
     key: '3',
-    title: 'Go With Friends',
-    subtitle: 'Create a party group and coordinate plans in one place.',
+    title: 'Find your nearby\nevent here',
+    subtitle: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
   },
 ];
 
@@ -46,7 +49,7 @@ export default function OnboardingCarousel() {
 
   const isLastSlide = activeIndex === SLIDES.length - 1;
 
-  function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {// this is function is only called when the user scrolls the carousel, not when 
+  function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {// this is function is only called when the user scrolls the carousel, not when
 
     const index = Math.round(event.nativeEvent.contentOffset.x / width);
     if (index !== activeIndex) setActiveIndex(index);
@@ -66,7 +69,7 @@ export default function OnboardingCarousel() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
       <Pressable style={styles.skipButton} onPress={skip} hitSlop={12}>
         <Text style={styles.skipText}>Skip</Text>
@@ -87,10 +90,11 @@ export default function OnboardingCarousel() {
         scrollEventThrottle={16}
         renderItem={({ item }: { item: typeof SLIDES[number] }) => (
           <View style={styles.slide}>
-            {/* Swap this View for an Image/illustration per slide */}
-            <View style={styles.artPlaceholder} />
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.subtitle}>{item.subtitle}</Text>
+            <Image source={PHOTO_GRID} style={styles.artImage} resizeMode="cover" />
+            <View style={styles.textBlock}>
+              <Text style={styles.title}>{item.title}</Text>
+              <Text style={styles.subtitle}>{item.subtitle}</Text>
+            </View>
           </View>
         )}
       />
@@ -129,11 +133,10 @@ export default function OnboardingCarousel() {
 }
 
 const BRAND = {
-  background: '#14121F',
-  accent: '#FF6B4A',
-  textPrimary: '#FFFFFF',
-  textMuted: 'rgba(255,255,255,0.6)',
-  artPlaceholder: 'rgba(255,255,255,0.06)',
+  background: '#FFFFFF',
+  accent: '#FF383C',
+  textPrimary: '#25131A',
+  textMuted: '#8B8688',
 };
 
 const styles = StyleSheet.create({
@@ -148,29 +151,29 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   skipText: {
-    color: BRAND.textMuted,
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
   },
   slide: {
     width,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
   },
-  artPlaceholder: {
-    width: 220,
-    height: 220,
-    borderRadius: 24,
-    backgroundColor: BRAND.artPlaceholder,
-    marginBottom: 40,
+  artImage: {
+    width,
+    height: width * 1.19,
+  },
+  textBlock: {
+    paddingHorizontal: 32,
+    marginTop: 40,
+    alignItems: 'center',
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '800',
     color: BRAND.textPrimary,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   subtitle: {
     fontSize: 15,
@@ -180,13 +183,14 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 24,
-    paddingBottom: 48,
+    paddingTop: 16,
+    paddingBottom: 32,
     alignItems: 'center',
   },
   dots: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 28,
+    marginBottom: 24,
   },
   dot: {
     height: 8,
