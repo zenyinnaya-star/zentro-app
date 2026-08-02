@@ -1,9 +1,11 @@
 import { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../lib/supabase';
 import TicketsTabBar from '../../../components/TicketsTabBar';
+import TicketCard from '../../../components/TicketCard';
+import AnimatedButton from '../../../components/AnimatedButton';
 
 type Ticket = {
   id: string;
@@ -33,7 +35,7 @@ export default function CompletedTickets() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>My Tickets</Text>
+      <Text style={styles.header}>All Tickets</Text>
       <TicketsTabBar />
 
       {loading ? (
@@ -49,30 +51,32 @@ export default function CompletedTickets() {
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 40 }}
-          renderItem={({ item }) => (
-            <Pressable style={styles.card} onPress={() => router.push(`/ticket/${item.id}`)}>
-              {item.event_image_url ? (
-                <Image source={{ uri: item.event_image_url }} style={styles.thumb} />
-              ) : (
-                <View style={styles.thumbPlaceholder} />
-              )}
-              <View style={styles.info}>
-                <Text style={styles.title} numberOfLines={1}>{item.event_title}</Text>
-                <View style={styles.metaRow}>
-                  <Ionicons name="calendar-outline" size={12} color={BRAND.textMuted} />
-                  <Text style={styles.meta}>{formatDate(item.event_date)}</Text>
-                </View>
-              </View>
-              <Pressable
-                style={[styles.reviewButton, item.has_review && styles.reviewButtonDone]}
-                onPress={() => router.push(`/review/${item.id}`)}
-                disabled={item.has_review}
-              >
-                <Text style={[styles.reviewButtonText, item.has_review && styles.reviewButtonTextDone]}>
-                  {item.has_review ? 'Reviewed' : 'Review'}
-                </Text>
-              </Pressable>
-            </Pressable>
+          renderItem={({ item, index }) => (
+            <TicketCard
+              index={index}
+              image={item.event_image_url}
+              title={item.event_title}
+              location={item.event_location}
+              badgeLabel="Completed"
+              badgeVariant="green"
+              onPress={() => router.push(`/ticket/${item.id}`)}
+              footer={
+                <>
+                  <AnimatedButton
+                    label="View Detail"
+                    variant="outline"
+                    onPress={() => router.push(`/ticket/${item.id}`)}
+                  />
+                  <AnimatedButton
+                    label={item.has_review ? 'Reviewed' : 'Write a Review'}
+                    variant="solid"
+                    flex={1.3}
+                    disabled={item.has_review}
+                    onPress={() => router.push(`/review/${item.id}`)}
+                  />
+                </>
+              }
+            />
           )}
         />
       )}
@@ -80,33 +84,11 @@ export default function CompletedTickets() {
   );
 }
 
-function formatDate(iso: string) {
-  try {
-    return new Date(iso).toLocaleString(undefined, { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return iso;
-  }
-}
-
-const BRAND = {
-  background: '#14121F', card: 'rgba(255,255,255,0.05)', accent: '#FF3D8F',
-  textPrimary: '#FFFFFF', textMuted: 'rgba(255,255,255,0.55)',
-};
+const BRAND = { background: '#FFFFFF', accent: '#FF3D8F', textPrimary: '#1A1523', textMuted: '#9C98A3' };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BRAND.background, paddingHorizontal: 20, paddingTop: 60 },
-  header: { color: BRAND.textPrimary, fontSize: 22, fontWeight: '800', marginBottom: 16 },
+  header: { color: BRAND.textPrimary, fontSize: 18, fontWeight: '800', textAlign: 'center', marginBottom: 20 },
   emptyState: { alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 80 },
   emptyText: { color: BRAND.textMuted, fontSize: 13 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND.card, borderRadius: 14, padding: 10, marginBottom: 12 },
-  thumb: { width: 56, height: 56, borderRadius: 12 },
-  thumbPlaceholder: { width: 56, height: 56, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)' },
-  info: { flex: 1, marginLeft: 12 },
-  title: { color: BRAND.textPrimary, fontSize: 13, fontWeight: '700' },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
-  meta: { color: BRAND.textMuted, fontSize: 11 },
-  reviewButton: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: BRAND.accent },
-  reviewButtonDone: { backgroundColor: 'rgba(255,255,255,0.08)' },
-  reviewButtonText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  reviewButtonTextDone: { color: BRAND.textMuted },
 });
