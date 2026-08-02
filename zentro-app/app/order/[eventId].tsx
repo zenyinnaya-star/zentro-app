@@ -85,7 +85,9 @@ export default function OrderDetail() {
     );
   }
 
-  const unitPrice = event.is_free ? 0 : event.price;
+  const currentEvent = event;
+
+  const unitPrice = currentEvent.is_free ? 0 : currentEvent.price;
   const subtotal = unitPrice * quantity;
   const serviceFee = subtotal * SERVICE_FEE_RATE;
   const total = subtotal + serviceFee;
@@ -115,7 +117,7 @@ export default function OrderDetail() {
         .from('orders')
         .insert({
           user_id: user.id,
-          event_id: event.id,
+          event_id: currentEvent.id,
           quantity,
           promo_code: promoCode || null,
           payment_method: paymentMethod,
@@ -139,11 +141,11 @@ export default function OrderDetail() {
         .insert({
           order_id: order.id,
           user_id: user.id,
-          event_id: event.id,
-          event_title: event.title,
-          event_image_url: event.image_url,
-          event_location: event.location,
-          event_date: event.date,
+          event_id: currentEvent.id,
+          event_title: currentEvent.title,
+          event_image_url: currentEvent.image_url,
+          event_location: currentEvent.location,
+          event_date: currentEvent.date,
           quantity,
           holder_name: holderName,
           status: 'upcoming',
@@ -157,8 +159,8 @@ export default function OrderDetail() {
         pathname: '/ticket/booked',
         params: {
           ticketId: ticket.id,
-          eventTitle: event.title,
-          eventImageUrl: event.image_url ?? '',
+          eventTitle: currentEvent.title,
+          eventImageUrl: currentEvent.image_url ?? '',
         },
       });
     } catch (err) {
