@@ -97,15 +97,70 @@ export default function OrderDetail() {
   async function handleConfirmAndPay() {
     setSubmitting(true);
     try {
-      // TODO: replace with a call to a Supabase Edge Function, e.g.:
-      // const { data, error } = await supabase.functions.invoke('create-order', {
-      //   body: { eventId: event.id, quantity, promoCode, paymentMethod, total },
-      // });
-      // That function creates the Stripe PaymentIntent server-side, charges
-      // the card, then inserts rows into `orders` and `tickets`.
-      await new Promise((resolve) => setTimeout(resolve, 800)); // placeholder delay
+      // NOTE: this inserts directly from the client as a placeholder. Before
+      // launch, swap this for a call to a Supabase Edge Function that creates
+      // the Stripe PaymentIntent server-side and only inserts orders/tickets
+      // once the charge succeeds — never trust the client to say "paid".
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      router.replace('/ticket/booked');
+      if (!user) {
+        Alert.alert('Please log in', 'You need to be signed in to book a ticket.');
+        router.push('/(auth)/login');
+        return;
+      }
+
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: user.id,
+          event_id: event.id,
+          quantity,
+          promo_code: promoCode || null,
+          payment_method: paymentMethod,
+          subtotal,
+          service_fee: serviceFee,
+          total,
+          status: 'paid',
+        })
+        .select()
+        .single();
+
+      if (orderError || !order) throw orderError ?? new Error('Order creation failed');
+
+      const holderName =
+        (user.user_metadata?.username as string | undefined) ??
+        (user.email as string | undefined) ??
+        'Guest';
+
+      const { data: ticket, error: ticketError } = await supabase
+        .from('tickets')
+        .insert({
+          order_id: order.id,
+          user_id: user.id,
+          event_id: event.id,
+          event_title: event.title,
+          event_image_url: event.image_url,
+          event_location: event.location,
+          event_date: event.date,
+          quantity,
+          holder_name: holderName,
+          status: 'upcoming',
+        })
+        .select()
+        .single();
+
+      if (ticketError || !ticket) throw ticketError ?? new Error('Ticket creation failed');
+
+      router.replace({
+        pathname: '/ticket/booked',
+        params: {
+          ticketId: ticket.id,
+          eventTitle: event.title,
+          eventImageUrl: event.image_url ?? '',
+        },
+      });
     } catch (err) {
       Alert.alert('Payment failed', 'Something went wrong. Please try again.');
     } finally {
