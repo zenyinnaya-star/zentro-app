@@ -8,6 +8,7 @@ import {
   Pressable,
   Animated,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -72,17 +73,53 @@ export default function EventDetail() {
       setLoading(true);
       const { data } = await supabase.from('events').select('*').eq('id', id).single();
       if (data) setEvent(data as EventDetails);
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data: favRow } = await supabase
+          .from('favorites')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('event_id', id)
+          .maybeSingle();
+        setFavorited(!!favRow);
+      }
+
       setLoading(false);
     })();
   }, [id]);
 
-  function toggleFavorite() {
-    setFavorited((prev) => !prev);
+  async function toggleFavorite() {
+    const nextFavorited = !favorited;
+    setFavorited(nextFavorited); // optimistic
     Animated.sequence([
       Animated.spring(heartScale, { toValue: 1.4, useNativeDriver: true, speed: 60, bounciness: 12 }),
       Animated.spring(heartScale, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 8 }),
     ]).start();
-    // TODO: upsert/delete row in `favorites` table keyed by user id + event id
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user || !event) {
+      setFavorited(!nextFavorited); // revert, nothing to persist to
+      return;
+    }
+
+    if (nextFavorited) {
+      const { error } = await supabase
+        .from('favorites')
+        .insert({ user_id: user.id, event_id: event.id });
+      if (error) setFavorited(!nextFavorited);
+    } else {
+      const { error } = await supabase
+        .from('favorites')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('event_id', event.id);
+      if (error) setFavorited(!nextFavorited);
+    }
   }
 
   if (loading) {
@@ -178,7 +215,14 @@ export default function EventDetail() {
               <Text style={styles.organizerLabel}>Organizers</Text>
               <Text style={styles.organizerName}>{event.organizer_name || 'Event Host'}</Text>
             </View>
-            <Tappable style={styles.messageButton}>
+            <Tappable
+              style={styles.messageButton}
+              onPress={() =>
+                // Placeholder: no direct-messaging feature/table exists yet.
+                // Swap this for `router.push('/messages/${organizerId}')` once built.
+                Alert.alert('Coming soon', 'Messaging organizers isn\u2019t available yet.')
+              }
+            >
               <Ionicons name="chatbubble-outline" size={16} color={BRAND.accent} />
             </Tappable>
           </View>
