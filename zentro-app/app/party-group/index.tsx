@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { supabase } from '../../lib/supabase';
 
 // Screen 27 — Party Group
@@ -136,7 +137,13 @@ export default function PartyGroup() {
           <Text style={styles.codeLabel}>Invite Code</Text>
           <Text style={styles.codeValue}>{group.invite_code}</Text>
         </View>
-        <Tappable style={styles.copyButton}>
+        <Tappable
+          style={styles.copyButton}
+          onPress={async () => {
+            await Clipboard.setStringAsync(group.invite_code);
+            Alert.alert('Copied', 'Invite code copied to clipboard.');
+          }}
+        >
           <Ionicons name="copy-outline" size={16} color={BRAND.accent} />
         </Tappable>
       </View>
