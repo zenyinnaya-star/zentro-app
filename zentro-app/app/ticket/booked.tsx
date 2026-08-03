@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Image, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Animated, Pressable, Easing } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 // Screen 19 — Ticket Booked (confirmation)
-// Receives the freshly created ticket's id + a few display fields as params
-// from Order Detail so it doesn't need a second network round trip.
+// Presented as a transparent modal (see app/_layout.tsx) so it appears as a
+// bottom sheet floating over the Order Detail screen behind it, matching the
+// mockup's dimmed-backdrop look. Receives the freshly created ticket's id +
+// a few display fields as params from Order Detail so it doesn't need a
+// second network round trip.
 
 function Tappable({
   onPress,
@@ -32,97 +35,110 @@ function Tappable({
 
 export default function TicketBooked() {
   const router = useRouter();
-  const { ticketId, eventTitle, eventImageUrl } = useLocalSearchParams<{
+  const { ticketId, eventTitle } = useLocalSearchParams<{
     ticketId: string;
     eventTitle?: string;
     eventImageUrl?: string;
   }>();
 
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const sheetTranslateY = useRef(new Animated.Value(60)).current;
   const checkScale = useRef(new Animated.Value(0)).current;
-  const fade = useRef(new Animated.Value(0)).current;
+  const glowScale = useRef(new Animated.Value(0.6)).current;
+  const glowOpacity = useRef(new Animated.Value(0.5)).current;
+  const contentFade = useRef(new Animated.Value(0)).current;
+  const buttonsFade = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    Animated.timing(backdropOpacity, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+    Animated.spring(sheetTranslateY, { toValue: 0, delay: 60, friction: 9, tension: 55, useNativeDriver: true }).start();
     Animated.sequence([
+      Animated.delay(220),
       Animated.spring(checkScale, { toValue: 1, useNativeDriver: true, speed: 10, bounciness: 14 }),
-      Animated.timing(fade, { toValue: 1, duration: 300, useNativeDriver: true }),
     ]).start();
+    Animated.timing(contentFade, { toValue: 1, duration: 300, delay: 380, useNativeDriver: true }).start();
+    Animated.timing(buttonsFade, { toValue: 1, duration: 300, delay: 480, useNativeDriver: true }).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(glowScale, { toValue: 1.25, duration: 1100, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+          Animated.timing(glowOpacity, { toValue: 0, duration: 1100, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+        ]),
+        Animated.timing(glowScale, { toValue: 0.6, duration: 0, useNativeDriver: true }),
+        Animated.timing(glowOpacity, { toValue: 0.5, duration: 0, useNativeDriver: true }),
+      ])
+    ).start();
   }, []);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Animated.View style={[styles.checkCircle, { transform: [{ scale: checkScale }] }]}>
-          <Ionicons name="checkmark" size={44} color="#fff" />
-        </Animated.View>
+    <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={() => router.back()} />
 
-        <Animated.View style={{ opacity: fade, alignItems: 'center' }}>
-          <Text style={styles.title}>Ticket Booked!</Text>
+      <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetTranslateY }] }]}>
+        <View style={styles.checkWrap}>
+          <Animated.View style={[styles.glowRing, { opacity: glowOpacity, transform: [{ scale: glowScale }] }]} />
+          <Animated.View style={[styles.checkCircle, { transform: [{ scale: checkScale }] }]}>
+            <Ionicons name="checkmark" size={40} color="#fff" />
+          </Animated.View>
+        </View>
+
+        <Animated.View style={{ opacity: contentFade, alignItems: 'center' }}>
+          <Text style={styles.title}>Congratulations!</Text>
           <Text style={styles.subtitle}>
-            Your payment was successful. Your ticket is ready — show the QR code at the door.
+            You have successfully placed order for {eventTitle || 'this event'}. Enjoy the event!
           </Text>
-
-          {!!eventTitle && (
-            <View style={styles.eventCard}>
-              {eventImageUrl ? (
-                <Image source={{ uri: eventImageUrl }} style={styles.eventImage} />
-              ) : (
-                <View style={styles.eventImagePlaceholder} />
-              )}
-              <Text style={styles.eventTitle} numberOfLines={2}>{eventTitle}</Text>
-            </View>
-          )}
         </Animated.View>
-      </View>
 
-      <View style={styles.bottomBar}>
-        <Tappable
-          style={styles.primaryButton}
-          onPress={() => router.replace(`/ticket/${ticketId}`)}
-        >
-          <Text style={styles.primaryButtonText}>View Ticket</Text>
-        </Tappable>
-        <Tappable
-          style={styles.secondaryButton}
-          onPress={() => router.replace('/(tabs)/home')}
-        >
-          <Text style={styles.secondaryButtonText}>Back to Home</Text>
-        </Tappable>
-      </View>
-    </View>
+        <Animated.View style={{ opacity: buttonsFade, width: '100%', gap: 12 }}>
+          <Tappable style={styles.primaryButton} onPress={() => router.replace(`/ticket/${ticketId}`)}>
+            <Text style={styles.primaryButtonText}>View E-Ticket</Text>
+          </Tappable>
+          <Tappable style={styles.secondaryButton} onPress={() => router.replace('/(tabs)/home')}>
+            <Text style={styles.secondaryButtonText}>Go to Home</Text>
+          </Tappable>
+        </Animated.View>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
 const BRAND = {
-  background: '#14121F',
-  card: 'rgba(255,255,255,0.05)',
-  accent: '#FF6B4A',
-  textPrimary: '#FFFFFF',
-  textMuted: 'rgba(255,255,255,0.55)',
-  border: 'rgba(255,255,255,0.1)',
+  accent: '#FF3D8F',
+  green: '#34C759',
+  textPrimary: '#1A1523',
+  textMuted: '#9C98A3',
+  border: '#F0EEF1',
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BRAND.background },
-  content: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+  backdrop: { flex: 1, backgroundColor: 'rgba(20,18,31,0.55)', justifyContent: 'flex-end' },
 
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 28,
+    paddingTop: 40,
+    paddingBottom: 44,
+    alignItems: 'center',
+  },
+
+  checkWrap: { width: 88, height: 88, alignItems: 'center', justifyContent: 'center', marginBottom: 22 },
+  glowRing: { position: 'absolute', width: 88, height: 88, borderRadius: 44, backgroundColor: 'rgba(52,199,89,0.25)' },
   checkCircle: {
-    width: 88, height: 88, borderRadius: 44, backgroundColor: BRAND.accent,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 24,
+    width: 72, height: 72, borderRadius: 36, backgroundColor: BRAND.green,
+    alignItems: 'center', justifyContent: 'center',
   },
+
   title: { color: BRAND.textPrimary, fontSize: 22, fontWeight: '800', marginBottom: 10 },
-  subtitle: { color: BRAND.textMuted, fontSize: 13, textAlign: 'center', lineHeight: 19, marginBottom: 28 },
+  subtitle: { color: BRAND.textMuted, fontSize: 13, textAlign: 'center', lineHeight: 19, marginBottom: 28, paddingHorizontal: 8 },
 
-  eventCard: {
-    width: '100%', backgroundColor: BRAND.card, borderRadius: 16, padding: 12,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-  },
-  eventImage: { width: 48, height: 48, borderRadius: 10 },
-  eventImagePlaceholder: { width: 48, height: 48, borderRadius: 10, backgroundColor: BRAND.border },
-  eventTitle: { flex: 1, color: BRAND.textPrimary, fontSize: 14, fontWeight: '700' },
-
-  bottomBar: { paddingHorizontal: 20, paddingBottom: 34, paddingTop: 10, gap: 12 },
   primaryButton: { backgroundColor: BRAND.accent, paddingVertical: 17, borderRadius: 16, alignItems: 'center' },
   primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  secondaryButton: { paddingVertical: 17, borderRadius: 16, alignItems: 'center' },
-  secondaryButtonText: { color: BRAND.textMuted, fontSize: 14, fontWeight: '600' },
+  secondaryButton: {
+    paddingVertical: 17, borderRadius: 16, alignItems: 'center',
+    backgroundColor: '#fff', borderWidth: 1.5, borderColor: BRAND.accent,
+  },
+  secondaryButtonText: { color: BRAND.accent, fontSize: 15, fontWeight: '700' },
 });

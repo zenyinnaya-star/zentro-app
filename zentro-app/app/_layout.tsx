@@ -39,10 +39,13 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" />
           </>
         )}
-        <Stack.Screen name="event/[id]" options={{ headerShown: true, title: 'Event' }} />
-        <Stack.Screen name="order/[eventId]" options={{ headerShown: true, title: 'Order Detail' }} />
-        <Stack.Screen name="ticket/booked" options={{ headerShown: true, title: 'Ticket Booked' }} />
-        <Stack.Screen name="ticket/[id]" options={{ headerShown: true, title: 'Your Ticket' }} />
+        <Stack.Screen name="event/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="order/[eventId]" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="ticket/booked"
+          options={{ headerShown: false, presentation: 'transparentModal', animation: 'fade' }}
+        />
+        <Stack.Screen name="ticket/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="review/[id]" options={{ headerShown: true, title: 'Write a Review' }} />
         <Stack.Screen name="booking/cancel/[id]" options={{ headerShown: true, title: 'Cancel Booking' }} />
         <Stack.Screen name="party-group/index" options={{ headerShown: true, title: 'Party Group' }} />

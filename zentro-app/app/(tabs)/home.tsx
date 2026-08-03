@@ -132,6 +132,35 @@ export default function Home() {
   const popular = hasData ? events.slice(5, 8) : MOCK_POPULAR;
   const recommended = hasData ? events.slice(8) : MOCK_RECOMMENDED;
 
+  // Mock cards (shown only while the `events` table is empty) aren't real
+  // rows yet — hand their display data along so Event Detail can create a
+  // real event from it on first tap. See app/event/[id].tsx.
+  function goToEvent(item: EventItem) {
+    if (!item.id.startsWith('mock-')) {
+      router.push(`/event/${item.id}`);
+      return;
+    }
+    router.push({
+      pathname: '/event/[id]',
+      params: {
+        id: item.id,
+        placeholder: JSON.stringify({
+          title: item.title,
+          description: `Join us for ${item.title} — an unforgettable night you won't want to miss.`,
+          image_url: item.image_url,
+          location: item.location,
+          date: item.date,
+          price: item.price,
+          is_free: item.is_free ?? false,
+          category: item.category,
+          attendee_count: item.attendee_count ?? 0,
+          organizer_name: item.host_name ?? null,
+          organizer_avatar_url: item.host_avatar_url ?? null,
+        }),
+      },
+    });
+  }
+
   return (
     <ScrollView
       style={styles.container}
@@ -199,7 +228,7 @@ export default function Home() {
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.upcomingRow}
             renderItem={({ item }) => (
-              <UpcomingCard event={item} onPress={() => router.push(`/event/${item.id}`)} />
+              <UpcomingCard event={item} onPress={() => goToEvent(item)} />
             )}
           />
 
@@ -211,7 +240,7 @@ export default function Home() {
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.popularRow}
             renderItem={({ item }) => (
-              <PopularCard event={item} onPress={() => router.push(`/event/${item.id}`)} />
+              <PopularCard event={item} onPress={() => goToEvent(item)} />
             )}
           />
 
@@ -220,7 +249,7 @@ export default function Home() {
             <RecommendationRow
               key={item.id}
               event={item}
-              onPress={() => router.push(`/event/${item.id}`)}
+              onPress={() => goToEvent(item)}
             />
           ))}
         </>
