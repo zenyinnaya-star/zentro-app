@@ -70,12 +70,19 @@ export default function Login() {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Wire up via supabase.auth.signInWithOAuth({ provider: 'google' | 'facebook' }) */}
+        {/* Uses Supabase OAuth — Google/Facebook providers must be enabled
+            in Supabase Auth settings with matching redirect URLs first. */}
         <View style={styles.socialRow}>
-          <Pressable style={styles.socialButton}>
+          <Pressable
+            style={styles.socialButton}
+            onPress={() => handleOAuth('google')}
+          >
             <Text style={styles.socialButtonText}>Google</Text>
           </Pressable>
-          <Pressable style={styles.socialButton}>
+          <Pressable
+            style={styles.socialButton}
+            onPress={() => handleOAuth('facebook')}
+          >
             <Text style={styles.socialButtonText}>Facebook</Text>
           </Pressable>
         </View>
@@ -89,6 +96,11 @@ export default function Login() {
       </View>
     </KeyboardAvoidingView>
   );
+}
+
+async function handleOAuth(provider: 'google' | 'facebook') {
+  const { error } = await supabase.auth.signInWithOAuth({ provider });
+  if (error) Alert.alert('Login failed', error.message);
 }
 
 const BRAND = {
