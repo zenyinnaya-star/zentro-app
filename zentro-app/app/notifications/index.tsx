@@ -124,10 +124,9 @@ function timeAgo(iso: string) {
 }
 
 const BRAND = {
-  background: '#14121F', card: 'rgba(255,255,255,0.05)', accent: '#FF3D8F',
-  textPrimary: '#FFFFFF', textMuted: 'rgba(255,255,255,0.55)', border: 'rgba(255,255,255,0.1)',
+  background: '#3B2B5C', card: 'rgba(255,255,255,0.08)', accent: '#FF3D8F',
+  textPrimary: '#FFFFFF', textMuted: 'rgba(255,255,255,0.65)', border: 'rgba(255,255,255,0.12)',
 };
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BRAND.background },
   header: {
