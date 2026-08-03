@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { ThemeProvider } from '../context/ThemeContext';
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
@@ -28,7 +29,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <ThemeProvider>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }}>
         {session ? (
@@ -52,6 +53,6 @@ export default function RootLayout() {
         <Stack.Screen name="profile/edit" options={{ headerShown: true, title: 'Edit Profile' }} />
         <Stack.Screen name="notifications/index" options={{ headerShown: true, title: 'Notifications' }} />
       </Stack>
-    </>
+    </ThemeProvider>
   );
 }
