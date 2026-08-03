@@ -17,14 +17,6 @@ import { supabase } from '../../lib/supabase';
 // Screen 17 — Event Detail
 // Expects an `events` table row plus optional description / attendee_count /
 // organizer_name / organizer_avatar_url / latitude / longitude columns.
-//
-// Home shows placeholder/mock event cards (ids like "mock-u1") whenever the
-// `events` table is still empty. Those ids don't exist in the database, so
-// tapping one arrives here with a `placeholder` param carrying that card's
-// display data. When the direct lookup misses, `hydratePlaceholderEvent`
-// upserts a real row from it (keyed by placeholder_key so re-taps are
-// idempotent) and the screen redirects to the resulting real id — from then
-// on Buy Ticket / favoriting / orders all operate on a normal event row.
 
 type EventDetails = {
   id: string;
@@ -41,16 +33,6 @@ type EventDetails = {
   latitude?: number;
   longitude?: number;
 };
-
-async function hydratePlaceholderEvent(mockId: string, placeholder: Record<string, unknown>) {
-  const { data, error } = await supabase
-    .from('events')
-    .upsert({ placeholder_key: mockId, ...placeholder }, { onConflict: 'placeholder_key' })
-    .select()
-    .single();
-  if (error || !data) return null;
-  return data as EventDetails;
-}
 
 /* ---------- Reusable animated press wrapper ---------- */
 function Tappable({
@@ -79,68 +61,35 @@ function Tappable({
 }
 
 export default function EventDetail() {
-  const { id, placeholder } = useLocalSearchParams<{ id: string; placeholder?: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [event, setEvent] = useState<EventDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [favorited, setFavorited] = useState(false);
   const heartScale = useRef(new Animated.Value(1)).current;
-  const cardOpacity = useRef(new Animated.Value(0)).current;
-  const cardTranslateY = useRef(new Animated.Value(24)).current;
-  const heroOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data } = await supabase.from('events').select('*').eq('id', id).maybeSingle();
-      let resolved = data as EventDetails | null;
+      const { data } = await supabase.from('events').select('*').eq('id', id).single();
+      if (data) setEvent(data as EventDetails);
 
-      if (!resolved && placeholder) {
-        try {
-          resolved = await hydratePlaceholderEvent(id, JSON.parse(placeholder));
-        } catch {
-          resolved = null;
-        }
-        if (resolved && resolved.id !== id) {
-          router.replace(`/event/${resolved.id}`);
-          return;
-        }
-      }
-
-      if (cancelled) return;
-      setEvent(resolved);
-
-      if (resolved) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user) {
-          const { data: favRow } = await supabase
-            .from('favorites')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('event_id', resolved.id)
-            .maybeSingle();
-          setFavorited(!!favRow);
-        }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data: favRow } = await supabase
+          .from('favorites')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('event_id', id)
+          .maybeSingle();
+        setFavorited(!!favRow);
       }
 
       setLoading(false);
     })();
-    return () => {
-      cancelled = true;
-    };
   }, [id]);
-
-  useEffect(() => {
-    if (loading || !event) return;
-    Animated.timing(heroOpacity, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-    Animated.parallel([
-      Animated.timing(cardOpacity, { toValue: 1, duration: 380, delay: 120, useNativeDriver: true }),
-      Animated.spring(cardTranslateY, { toValue: 0, delay: 120, friction: 9, tension: 60, useNativeDriver: true }),
-    ]).start();
-  }, [loading, event]);
 
   async function toggleFavorite() {
     const nextFavorited = !favorited;
@@ -193,7 +142,7 @@ export default function EventDetail() {
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Hero image */}
-        <Animated.View style={[styles.heroWrap, { opacity: heroOpacity }]}>
+        <View style={styles.heroWrap}>
           {event.image_url ? (
             <Image source={{ uri: event.image_url }} style={styles.hero} />
           ) : (
@@ -214,10 +163,10 @@ export default function EventDetail() {
               </Animated.View>
             </Pressable>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Overlapping white card */}
-        <Animated.View style={[styles.card, { opacity: cardOpacity, transform: [{ translateY: cardTranslateY }] }]}>
+        <View style={styles.card}>
           <View style={styles.titleRow}>
             <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
             <Text style={styles.price}>
@@ -292,11 +241,18 @@ export default function EventDetail() {
               <Ionicons name="location" size={18} color="#fff" />
             </View>
           </Tappable>
-        </Animated.View>
+        </View>
       </ScrollView>
 
       {/* Fixed bottom bar */}
       <View style={styles.bottomBar}>
+        <Tappable
+          style={styles.partyGroupButton}
+          onPress={() => router.push(`/party-group?eventId=${event.id}`)}
+          scaleTo={0.97}
+        >
+          <Ionicons name="people-outline" size={20} color={BRAND.textPrimary} />
+        </Tappable>
         <Tappable
           style={styles.buyButton}
           onPress={() => router.push(`/order/${event.id}`)}
@@ -322,7 +278,7 @@ function formatDate(iso: string) {
 }
 
 const BRAND = {
-  background: '#FFFFFF',
+  background: '#14121F',
   accent: '#FF3D8F',
   cardBg: '#FFFFFF',
   textPrimary: '#1A1A1A',
@@ -409,10 +365,14 @@ const styles = StyleSheet.create({
 
   bottomBar: {
     position: 'absolute', left: 0, right: 0, bottom: 0,
-    backgroundColor: BRAND.cardBg,
-    borderTopWidth: 1, borderColor: BRAND.border,
+    backgroundColor: BRAND.background,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 20, paddingTop: 14, paddingBottom: 34,
   },
-  buyButton: { backgroundColor: BRAND.accent, paddingVertical: 17, borderRadius: 16, alignItems: 'center' },
+  partyGroupButton: {
+    width: 54, height: 54, borderRadius: 16, backgroundColor: '#F2F2F2',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  buyButton: { flex: 1, backgroundColor: BRAND.accent, paddingVertical: 17, borderRadius: 16, alignItems: 'center' },
   buyButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });
