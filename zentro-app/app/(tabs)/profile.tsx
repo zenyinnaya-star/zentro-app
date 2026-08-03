@@ -1,9 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Image, Pressable, ScrollView, ActivityIndicator, Alert, Switch } from 'react-native';
+import { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, Image, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
-import { useTheme, DARK } from '../../context/ThemeContext';
 
 // Screen 28 — My Profile
 type Profile = {
@@ -27,9 +26,6 @@ export default function MyProfile() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const { isDark, colors: BRAND, toggleTheme } = useTheme();
-
-  const styles = useMemo(() => makeStyles(BRAND), [BRAND]);
 
   const load = useCallback(async () => {
     const {
@@ -91,24 +87,15 @@ export default function MyProfile() {
       </View>
 
       <View style={styles.menu}>
-        <View style={styles.menuRow}>
-          <View style={styles.menuIconWrap}>
-            <Ionicons name={isDark ? 'moon-outline' : 'sunny-outline'} size={18} color={BRAND.textPrimary} />
-          </View>
-          <Text style={styles.menuLabel}>{isDark ? 'Dark Mode' : 'Light Mode'}</Text>
-          <Switch
-            value={isDark}
-            onValueChange={toggleTheme}
-            trackColor={{ false: BRAND.border, true: BRAND.accent }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
-
         {MENU_ITEMS.map((item) => (
           <Pressable
             key={item.key}
             style={styles.menuRow}
-            onPress={() => item.route && router.push(item.route as any)}
+            onPress={() =>
+              item.route
+                ? router.push(item.route as any)
+                : Alert.alert(item.label, 'This page isn\u2019t built yet.')
+            }
           >
             <View style={styles.menuIconWrap}>
               <Ionicons name={item.icon} size={18} color={BRAND.textPrimary} />
@@ -127,40 +114,43 @@ export default function MyProfile() {
   );
 }
 
-function makeStyles(BRAND: typeof DARK) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: BRAND.background },
-    loadingContainer: { flex: 1, backgroundColor: BRAND.background, alignItems: 'center', justifyContent: 'center' },
-    content: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 60 },
+const BRAND = {
+  background: '#14121F', card: 'rgba(255,255,255,0.05)', accent: '#FF3D8F',
+  textPrimary: '#FFFFFF', textMuted: 'rgba(255,255,255,0.55)', border: 'rgba(255,255,255,0.1)',
+};
 
-    profileHeader: { alignItems: 'center', marginBottom: 30 },
-    avatar: { width: 88, height: 88, borderRadius: 44, marginBottom: 14 },
-    avatarPlaceholder: {
-      width: 88, height: 88, borderRadius: 44, backgroundColor: BRAND.card,
-      alignItems: 'center', justifyContent: 'center', marginBottom: 14,
-    },
-    username: { color: BRAND.textPrimary, fontSize: 19, fontWeight: '800' },
-    email: { color: BRAND.textMuted, fontSize: 13, marginTop: 4 },
-    editButton: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      marginTop: 14, paddingHorizontal: 16, paddingVertical: 8,
-      borderRadius: 20, borderWidth: 1, borderColor: BRAND.accent,
-    },
-    editButtonText: { color: BRAND.accent, fontSize: 12, fontWeight: '700' },
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: BRAND.background },
+  loadingContainer: { flex: 1, backgroundColor: BRAND.background, alignItems: 'center', justifyContent: 'center' },
+  content: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 60 },
 
-    menu: { backgroundColor: BRAND.card, borderRadius: 16, overflow: 'hidden', marginBottom: 24 },
-    menuRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 12,
-      paddingHorizontal: 16, paddingVertical: 14,
-      borderBottomWidth: 1, borderBottomColor: BRAND.border,
-    },
-    menuIconWrap: { width: 30, alignItems: 'center' },
-    menuLabel: { flex: 1, color: BRAND.textPrimary, fontSize: 14, fontWeight: '500' },
+  profileHeader: { alignItems: 'center', marginBottom: 30 },
+  avatar: { width: 88, height: 88, borderRadius: 44, marginBottom: 14 },
+  avatarPlaceholder: {
+    width: 88, height: 88, borderRadius: 44, backgroundColor: BRAND.card,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 14,
+  },
+  username: { color: BRAND.textPrimary, fontSize: 19, fontWeight: '800' },
+  email: { color: BRAND.textMuted, fontSize: 13, marginTop: 4 },
+  editButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginTop: 14, paddingHorizontal: 16, paddingVertical: 8,
+    borderRadius: 20, borderWidth: 1, borderColor: BRAND.accent,
+  },
+  editButtonText: { color: BRAND.accent, fontSize: 12, fontWeight: '700' },
 
-    logoutButton: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-      paddingVertical: 16, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,82,82,0.3)',
-    },
-    logoutText: { color: '#FF5252', fontSize: 14, fontWeight: '700' },
-  });
-}
+  menu: { backgroundColor: BRAND.card, borderRadius: 16, overflow: 'hidden', marginBottom: 24 },
+  menuRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: BRAND.border,
+  },
+  menuIconWrap: { width: 30, alignItems: 'center' },
+  menuLabel: { flex: 1, color: BRAND.textPrimary, fontSize: 14, fontWeight: '500' },
+
+  logoutButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 16, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,82,82,0.3)',
+  },
+  logoutText: { color: '#FF5252', fontSize: 14, fontWeight: '700' },
+});
