@@ -38,13 +38,11 @@ function Tappable({
   style,
   children,
   scaleTo = 0.96,
-  disabled,
 }: {
   onPress?: () => void;
   style?: any;
   children: React.ReactNode;
   scaleTo?: number;
-  disabled?: boolean;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   function pressIn() {
@@ -54,49 +52,9 @@ function Tappable({
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 8 }).start();
   }
   return (
-    <Pressable onPress={onPress} onPressIn={pressIn} onPressOut={pressOut} disabled={disabled}>
+    <Pressable onPress={onPress} onPressIn={pressIn} onPressOut={pressOut}>
       <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>
     </Pressable>
-  );
-}
-
-/* ---------- Animated section wrapper (staggered entrance) ---------- */
-function FadeInSection({ index = 0, style, children }: { index?: number; style?: any; children: React.ReactNode }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(14)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 320, delay: index * 70, useNativeDriver: true }),
-      Animated.spring(translateY, { toValue: 0, delay: index * 70, friction: 8, tension: 60, useNativeDriver: true }),
-    ]).start();
-  }, []);
-
-  return <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>{children}</Animated.View>;
-}
-
-/* ---------- Payment method radio row ---------- */
-function PaymentRow({
-  active,
-  iconBg,
-  icon,
-  label,
-  onPress,
-}: {
-  active: boolean;
-  iconBg: string;
-  icon: React.ReactNode;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Tappable style={[styles.paymentRow, active && styles.paymentRowActive]} onPress={onPress} scaleTo={0.98}>
-      <View style={[styles.paymentIcon, { backgroundColor: iconBg }]}>{icon}</View>
-      <Text style={styles.paymentLabel}>{label}</Text>
-      <View style={[styles.radioOuter, active && styles.radioOuterActive]}>
-        {active && <View style={styles.radioInner} />}
-      </View>
-    </Tappable>
   );
 }
 
@@ -105,8 +63,9 @@ export default function OrderDetail() {
   const router = useRouter();
   const [event, setEvent] = useState<EventSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [quantity, setQuantity] = useState(2);
+  const [quantity, setQuantity] = useState(1);
   const [promoCode, setPromoCode] = useState('');
+  const [promoApplied, setPromoApplied] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'paypal'>('card');
   const [submitting, setSubmitting] = useState(false);
 
@@ -127,15 +86,25 @@ export default function OrderDetail() {
     );
   }
 
-  const currentEvent = event;
-
-  const unitPrice = currentEvent.is_free ? 0 : currentEvent.price;
+  const unitPrice = event.is_free ? 0 : event.price;
   const subtotal = unitPrice * quantity;
   const serviceFee = subtotal * SERVICE_FEE_RATE;
   const total = subtotal + serviceFee;
 
   function changeQuantity(delta: number) {
     setQuantity((q) => Math.max(1, Math.min(10, q + delta)));
+  }
+
+  function handleApplyPromo() {
+    // NOTE: there's no `promo_codes` table yet, so this just validates the
+    // field isn't empty. Wire this to a real lookup + discount calc once
+    // that table exists.
+    if (!promoCode.trim()) {
+      Alert.alert('Enter a code', 'Type a promo code before applying.');
+      return;
+    }
+    setPromoApplied(true);
+    Alert.alert('Promo code saved', 'It will be included with your order for review.');
   }
 
   async function handleConfirmAndPay() {
@@ -159,7 +128,7 @@ export default function OrderDetail() {
         .from('orders')
         .insert({
           user_id: user.id,
-          event_id: currentEvent.id,
+          event_id: event.id,
           quantity,
           promo_code: promoCode || null,
           payment_method: paymentMethod,
@@ -183,11 +152,11 @@ export default function OrderDetail() {
         .insert({
           order_id: order.id,
           user_id: user.id,
-          event_id: currentEvent.id,
-          event_title: currentEvent.title,
-          event_image_url: currentEvent.image_url,
-          event_location: currentEvent.location,
-          event_date: currentEvent.date,
+          event_id: event.id,
+          event_title: event.title,
+          event_image_url: event.image_url,
+          event_location: event.location,
+          event_date: event.date,
           quantity,
           holder_name: holderName,
           status: 'upcoming',
@@ -197,13 +166,12 @@ export default function OrderDetail() {
 
       if (ticketError || !ticket) throw ticketError ?? new Error('Ticket creation failed');
 
-      // push (not replace) so Ticket Booked can present as a sheet over this screen.
-      router.push({
+      router.replace({
         pathname: '/ticket/booked',
         params: {
           ticketId: ticket.id,
-          eventTitle: currentEvent.title,
-          eventImageUrl: currentEvent.image_url ?? '',
+          eventTitle: event.title,
+          eventImageUrl: event.image_url ?? '',
         },
       });
     } catch (err) {
@@ -226,7 +194,7 @@ export default function OrderDetail() {
 
         <View style={styles.content}>
           {/* Event summary */}
-          <FadeInSection index={0} style={styles.eventCard}>
+          <View style={styles.eventCard}>
             {event.image_url ? (
               <Image source={{ uri: event.image_url }} style={styles.eventImage} />
             ) : (
@@ -234,112 +202,102 @@ export default function OrderDetail() {
             )}
             <View style={styles.eventInfo}>
               <Text style={styles.eventTitle} numberOfLines={2}>{event.title}</Text>
-              <View style={styles.metaRow}>
-                <Ionicons name="calendar-outline" size={12} color={BRAND.textMuted} />
-                <Text style={styles.eventMeta}>{formatDate(event.date)}</Text>
-              </View>
+              <Text style={styles.eventMeta}>{formatDate(event.date)}</Text>
               <View style={styles.metaRow}>
                 <Ionicons name="location-outline" size={12} color={BRAND.textMuted} />
                 <Text style={styles.eventMeta}>{event.location}</Text>
               </View>
             </View>
-          </FadeInSection>
+          </View>
 
           {/* Ticket quantity */}
-          <FadeInSection index={1}>
-            <Text style={styles.sectionTitle}>Tickets</Text>
-            <View style={styles.quantityRow}>
-              <Text style={styles.quantityLabel}>Number of tickets</Text>
-              <View style={styles.stepper}>
-                <Tappable style={styles.stepperButton} onPress={() => changeQuantity(-1)}>
-                  <Ionicons name="remove" size={16} color={BRAND.textPrimary} />
-                </Tappable>
-                <Text style={styles.stepperValue}>{quantity}</Text>
-                <Tappable style={styles.stepperButton} onPress={() => changeQuantity(1)}>
-                  <Ionicons name="add" size={16} color={BRAND.textPrimary} />
-                </Tappable>
-              </View>
-            </View>
-          </FadeInSection>
-
-          {/* Payment method */}
-          <FadeInSection index={2}>
-            <Text style={styles.sectionTitle}>Payment Method</Text>
-            <View style={styles.paymentList}>
-              <PaymentRow
-                active={paymentMethod === 'card'}
-                onPress={() => setPaymentMethod('card')}
-                iconBg="rgba(255,61,143,0.12)"
-                icon={<Ionicons name="card" size={18} color={BRAND.accent} />}
-                label="Credit/Debit Card"
-              />
-              <PaymentRow
-                active={paymentMethod === 'paypal'}
-                onPress={() => setPaymentMethod('paypal')}
-                iconBg="rgba(0,112,209,0.12)"
-                icon={<Ionicons name="logo-paypal" size={18} color="#0070D1" />}
-                label="Paypal"
-              />
-            </View>
-          </FadeInSection>
-
-          {/* Promo code */}
-          <FadeInSection index={3}>
-            <Text style={styles.sectionTitle}>Promo Code</Text>
-            <View style={styles.promoRow}>
-              <TextInput
-                style={styles.promoInput}
-                placeholder="Enter code"
-                placeholderTextColor={BRAND.textMuted}
-                value={promoCode}
-                onChangeText={setPromoCode}
-                autoCapitalize="characters"
-              />
-              <Tappable style={styles.promoApplyButton}>
-                <Text style={styles.promoApplyText}>Apply</Text>
+          <Text style={styles.sectionTitle}>Tickets</Text>
+          <View style={styles.quantityRow}>
+            <Text style={styles.quantityLabel}>Number of tickets</Text>
+            <View style={styles.stepper}>
+              <Tappable style={styles.stepperButton} onPress={() => changeQuantity(-1)}>
+                <Ionicons name="remove" size={16} color={BRAND.textPrimary} />
+              </Tappable>
+              <Text style={styles.stepperValue}>{quantity}</Text>
+              <Tappable style={styles.stepperButton} onPress={() => changeQuantity(1)}>
+                <Ionicons name="add" size={16} color={BRAND.textPrimary} />
               </Tappable>
             </View>
-          </FadeInSection>
+          </View>
+
+          {/* Payment method */}
+          <Text style={styles.sectionTitle}>Payment Method</Text>
+          <View style={styles.paymentRow}>
+            <Tappable
+              style={[styles.paymentOption, paymentMethod === 'card' && styles.paymentOptionActive]}
+              onPress={() => setPaymentMethod('card')}
+              scaleTo={0.98}
+            >
+              <Ionicons name="card-outline" size={18} color={paymentMethod === 'card' ? '#fff' : BRAND.textPrimary} />
+              <Text style={[styles.paymentOptionText, paymentMethod === 'card' && styles.paymentOptionTextActive]}>
+                Card
+              </Text>
+            </Tappable>
+            <Tappable
+              style={[styles.paymentOption, paymentMethod === 'paypal' && styles.paymentOptionActive]}
+              onPress={() => setPaymentMethod('paypal')}
+              scaleTo={0.98}
+            >
+              <Ionicons name="logo-paypal" size={18} color={paymentMethod === 'paypal' ? '#fff' : BRAND.textPrimary} />
+              <Text style={[styles.paymentOptionText, paymentMethod === 'paypal' && styles.paymentOptionTextActive]}>
+                PayPal
+              </Text>
+            </Tappable>
+          </View>
+
+          {/* Promo code */}
+          <Text style={styles.sectionTitle}>Promo Code</Text>
+          <View style={styles.promoRow}>
+            <TextInput
+              style={styles.promoInput}
+              placeholder="Enter code"
+              placeholderTextColor={BRAND.textMuted}
+              value={promoCode}
+              onChangeText={setPromoCode}
+              autoCapitalize="characters"
+            />
+            <Tappable style={styles.promoApplyButton} onPress={handleApplyPromo}>
+              <Text style={styles.promoApplyText}>{promoApplied ? 'Applied' : 'Apply'}</Text>
+            </Tappable>
+          </View>
 
           {/* Price breakdown */}
-          <FadeInSection index={4}>
-            <Text style={styles.sectionTitle}>Order Summary</Text>
-            <View style={styles.priceBreakdown}>
-              <View style={styles.priceRow}>
-                <Text style={styles.priceRowLabel}>{quantity}x Ticket price</Text>
-                <Text style={styles.priceRowValue}>${subtotal.toFixed(2)}</Text>
-              </View>
-              <View style={styles.priceRow}>
-                <Text style={styles.priceRowLabel}>Subtotal</Text>
-                <Text style={styles.priceRowValue}>${subtotal.toFixed(2)}</Text>
-              </View>
-              <View style={styles.priceRow}>
-                <Text style={styles.priceRowLabel}>Fees</Text>
-                <Text style={styles.priceRowValue}>${serviceFee.toFixed(2)}</Text>
-              </View>
-              <View style={[styles.priceRow, styles.totalRow]}>
-                <Text style={styles.totalLabel}>Total</Text>
-                <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
-              </View>
+          <Text style={styles.sectionTitle}>Price Details</Text>
+          <View style={styles.priceBreakdown}>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceRowLabel}>Subtotal ({quantity} ticket{quantity > 1 ? 's' : ''})</Text>
+              <Text style={styles.priceRowValue}>${subtotal.toFixed(2)}</Text>
             </View>
-          </FadeInSection>
+            <View style={styles.priceRow}>
+              <Text style={styles.priceRowLabel}>Service Fee</Text>
+              <Text style={styles.priceRowValue}>${serviceFee.toFixed(2)}</Text>
+            </View>
+            <View style={[styles.priceRow, styles.totalRow]}>
+              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+            </View>
+          </View>
         </View>
       </ScrollView>
 
       {/* Fixed bottom bar */}
       <View style={styles.bottomBar}>
         <View>
-          <Text style={styles.priceLabel}>Price</Text>
+          <Text style={styles.priceLabel}>Total</Text>
           <Text style={styles.priceValue}>${total.toFixed(2)}</Text>
         </View>
         <Tappable
           style={[styles.payButton, submitting && styles.payButtonDisabled]}
           onPress={handleConfirmAndPay}
           scaleTo={0.97}
-          disabled={submitting}
         >
           <Text style={styles.payButtonText}>
-            {submitting ? 'Processing…' : 'Place Order'}
+            {submitting ? 'Processing…' : 'Confirm & Pay'}
           </Text>
         </Tappable>
       </View>
@@ -351,19 +309,19 @@ function formatDate(iso: string) {
   try {
     return new Date(iso).toLocaleString(undefined, {
       weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-    }).toUpperCase();
+    });
   } catch {
     return iso;
   }
 }
 
 const BRAND = {
-  background: '#FFFFFF',
-  card: '#FFFFFF',
-  accent: '#FF3D8F',
-  textPrimary: '#1A1523',
-  textMuted: '#9C98A3',
-  border: '#F0EEF1',
+  background: '#14121F',
+  card: 'rgba(255,255,255,0.05)',
+  accent: '#FF6B4A',
+  textPrimary: '#FFFFFF',
+  textMuted: 'rgba(255,255,255,0.55)',
+  border: 'rgba(255,255,255,0.1)',
 };
 
 const styles = StyleSheet.create({
@@ -374,75 +332,65 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 56, paddingBottom: 20,
   },
-  roundButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F3F1F5', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: BRAND.textPrimary, fontSize: 17, fontWeight: '800' },
+  roundButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: BRAND.card, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { color: BRAND.textPrimary, fontSize: 17, fontWeight: '700' },
 
   content: { paddingHorizontal: 20 },
 
-  eventCard: {
-    flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: BRAND.border,
-    padding: 12, gap: 12, marginBottom: 24,
-    shadowColor: '#1A1523', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1,
-  },
+  eventCard: { flexDirection: 'row', backgroundColor: BRAND.card, borderRadius: 16, padding: 12, gap: 12, marginBottom: 24 },
   eventImage: { width: 64, height: 64, borderRadius: 12 },
   eventImagePlaceholder: { width: 64, height: 64, borderRadius: 12, backgroundColor: BRAND.border },
-  eventInfo: { flex: 1, justifyContent: 'center' },
-  eventTitle: { color: BRAND.textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 6 },
-  eventMeta: { color: BRAND.textMuted, fontSize: 12 },
+  eventInfo: { flex: 1 },
+  eventTitle: { color: BRAND.textPrimary, fontSize: 14, fontWeight: '700' },
+  eventMeta: { color: BRAND.textMuted, fontSize: 12, marginTop: 3 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
 
-  sectionTitle: { color: BRAND.textPrimary, fontSize: 15, fontWeight: '800', marginBottom: 12 },
+  sectionTitle: { color: BRAND.textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 12 },
 
   quantityRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#fff', borderWidth: 1, borderColor: BRAND.border, borderRadius: 14, padding: 14, marginBottom: 24,
+    backgroundColor: BRAND.card, borderRadius: 14, padding: 14, marginBottom: 24,
   },
-  quantityLabel: { color: BRAND.textPrimary, fontSize: 14, fontWeight: '600' },
+  quantityLabel: { color: BRAND.textPrimary, fontSize: 14 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   stepperButton: {
-    width: 30, height: 30, borderRadius: 8, backgroundColor: '#F3F1F5',
+    width: 30, height: 30, borderRadius: 8, backgroundColor: BRAND.border,
     alignItems: 'center', justifyContent: 'center',
   },
   stepperValue: { color: BRAND.textPrimary, fontSize: 15, fontWeight: '700', minWidth: 16, textAlign: 'center' },
 
-  paymentList: { gap: 12, marginBottom: 24 },
-  paymentRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: BRAND.border, backgroundColor: '#fff',
+  paymentRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  paymentOption: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: BRAND.border, backgroundColor: BRAND.card,
   },
-  paymentRowActive: { borderColor: BRAND.accent },
-  paymentIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  paymentLabel: { flex: 1, color: BRAND.textPrimary, fontSize: 14, fontWeight: '600' },
-  radioOuter: {
-    width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: BRAND.border,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  radioOuterActive: { borderColor: BRAND.accent },
-  radioInner: { width: 11, height: 11, borderRadius: 6, backgroundColor: BRAND.accent },
+  paymentOptionActive: { backgroundColor: BRAND.accent, borderColor: BRAND.accent },
+  paymentOptionText: { color: BRAND.textPrimary, fontSize: 14, fontWeight: '600' },
+  paymentOptionTextActive: { color: '#fff' },
 
   promoRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
   promoInput: {
-    flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: BRAND.border,
+    flex: 1, backgroundColor: BRAND.card, borderWidth: 1, borderColor: BRAND.border,
     borderRadius: 14, paddingHorizontal: 16, color: BRAND.textPrimary, fontSize: 14,
   },
   promoApplyButton: {
-    paddingHorizontal: 20, borderRadius: 14, backgroundColor: '#F3F1F5',
-    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 20, borderRadius: 14, backgroundColor: BRAND.card,
+    borderWidth: 1, borderColor: BRAND.border, alignItems: 'center', justifyContent: 'center',
   },
   promoApplyText: { color: BRAND.accent, fontSize: 13, fontWeight: '700' },
 
-  priceBreakdown: { gap: 12 },
+  priceBreakdown: { backgroundColor: BRAND.card, borderRadius: 14, padding: 16, gap: 10 },
   priceRow: { flexDirection: 'row', justifyContent: 'space-between' },
   priceRowLabel: { color: BRAND.textMuted, fontSize: 13 },
   priceRowValue: { color: BRAND.textPrimary, fontSize: 13, fontWeight: '600' },
-  totalRow: { borderTopWidth: 1, borderColor: BRAND.border, paddingTop: 12, marginTop: 2 },
-  totalLabel: { color: BRAND.textPrimary, fontSize: 16, fontWeight: '800' },
-  totalValue: { color: BRAND.textPrimary, fontSize: 16, fontWeight: '800' },
+  totalRow: { borderTopWidth: 1, borderColor: BRAND.border, paddingTop: 10, marginTop: 4 },
+  totalLabel: { color: BRAND.textPrimary, fontSize: 15, fontWeight: '700' },
+  totalValue: { color: BRAND.accent, fontSize: 16, fontWeight: '800' },
 
   bottomBar: {
     position: 'absolute', left: 0, right: 0, bottom: 0,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#fff', borderTopWidth: 1, borderColor: BRAND.border,
+    backgroundColor: BRAND.background, borderTopWidth: 1, borderColor: BRAND.border,
     paddingHorizontal: 20, paddingTop: 14, paddingBottom: 34,
   },
   priceLabel: { color: BRAND.textMuted, fontSize: 12 },
