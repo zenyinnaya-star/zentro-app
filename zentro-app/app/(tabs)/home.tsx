@@ -127,10 +127,12 @@ export default function Home() {
     setRefreshing(false);
   }
 
-  const hasData = events.length > 0;
-  const upcoming = hasData ? events.slice(0, 5) : MOCK_UPCOMING;
-  const popular = hasData ? events.slice(5, 8) : MOCK_POPULAR;
-  const recommended = hasData ? events.slice(8) : MOCK_RECOMMENDED;
+  const upcomingSlice = events.slice(0, 5);
+  const popularSlice = events.slice(5, 8);
+  const recommendedSlice = events.slice(8);
+  const upcoming = upcomingSlice.length > 0 ? upcomingSlice : MOCK_UPCOMING;
+  const popular = popularSlice.length > 0 ? popularSlice : MOCK_POPULAR;
+  const recommended = recommendedSlice.length > 0 ? recommendedSlice : MOCK_RECOMMENDED;
 
   return (
     <ScrollView

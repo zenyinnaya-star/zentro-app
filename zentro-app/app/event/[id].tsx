@@ -28,6 +28,7 @@ type EventDetails = {
   price: number;
   is_free?: boolean;
   attendee_count?: number;
+  capacity?: number | null;
   organizer_name?: string;
   organizer_avatar_url?: string | null;
   latitude?: number;
@@ -137,6 +138,11 @@ export default function EventDetail() {
       </View>
     );
   }
+
+  const isPast = new Date(event.date).getTime() < Date.now();
+  const isSoldOut = event.capacity != null && (event.attendee_count ?? 0) >= event.capacity;
+  const buyDisabled = isPast || isSoldOut;
+  const buyLabel = isPast ? 'Event Ended' : isSoldOut ? 'Sold Out' : 'Buy Ticket';
 
   return (
     <View style={styles.container}>
@@ -251,14 +257,16 @@ export default function EventDetail() {
           onPress={() => router.push(`/party-group?eventId=${event.id}`)}
           scaleTo={0.97}
         >
-          <Ionicons name="people-outline" size={20} color={BRAND.textPrimary} />
+          <Ionicons name="people-outline" size={19} color={BRAND.accent} />
+          <Text style={styles.partyGroupButtonText}>Group</Text>
         </Tappable>
         <Tappable
-          style={styles.buyButton}
-          onPress={() => router.push(`/order/${event.id}`)}
-          scaleTo={0.97}
+          style={[styles.buyButton, buyDisabled && styles.buyButtonDisabled]}
+          onPress={() => !buyDisabled && router.push(`/order/${event.id}`)}
+          scaleTo={buyDisabled ? 1 : 0.97}
         >
-          <Text style={styles.buyButtonText}>Buy Ticket</Text>
+          {!buyDisabled && <Ionicons name="ticket-outline" size={17} color="#fff" style={{ marginRight: 8 }} />}
+          <Text style={[styles.buyButtonText, buyDisabled && styles.buyButtonTextDisabled]}>{buyLabel}</Text>
         </Tappable>
       </View>
     </View>
@@ -368,11 +376,20 @@ const styles = StyleSheet.create({
     backgroundColor: BRAND.background,
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 20, paddingTop: 14, paddingBottom: 34,
+    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: -6 },
+    elevation: 12,
   },
   partyGroupButton: {
-    width: 54, height: 54, borderRadius: 16, backgroundColor: '#F2F2F2',
-    alignItems: 'center', justifyContent: 'center',
+    width: 72, height: 58, borderRadius: 18, backgroundColor: 'rgba(255,61,143,0.12)',
+    alignItems: 'center', justifyContent: 'center', gap: 3,
   },
-  buyButton: { flex: 1, backgroundColor: BRAND.accent, paddingVertical: 17, borderRadius: 16, alignItems: 'center' },
+  partyGroupButtonText: { color: BRAND.accent, fontSize: 10, fontWeight: '700' },
+  buyButton: {
+    flex: 1, flexDirection: 'row', backgroundColor: BRAND.accent, paddingVertical: 17, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: BRAND.accent, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
+  },
+  buyButtonDisabled: { backgroundColor: '#E4E1E6', shadowOpacity: 0 },
   buyButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  buyButtonTextDisabled: { color: 'rgba(0,0,0,0.35)' },
 });

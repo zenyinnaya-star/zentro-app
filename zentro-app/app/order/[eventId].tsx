@@ -28,6 +28,8 @@ type EventSummary = {
   date: string;
   price: number;
   is_free?: boolean;
+  attendee_count?: number;
+  capacity?: number | null;
 };
 
 const SERVICE_FEE_RATE = 0.05; // 5% — adjust to your actual fee model
@@ -86,13 +88,19 @@ export default function OrderDetail() {
     );
   }
 
+  const isPast = new Date(event.date).getTime() < Date.now();
+  const remaining = event.capacity != null ? Math.max(0, event.capacity - (event.attendee_count ?? 0)) : null;
+  const isSoldOut = remaining !== null && remaining <= 0;
+  const orderDisabled = isPast || isSoldOut;
+
   const unitPrice = event.is_free ? 0 : event.price;
   const subtotal = unitPrice * quantity;
   const serviceFee = subtotal * SERVICE_FEE_RATE;
   const total = subtotal + serviceFee;
 
   function changeQuantity(delta: number) {
-    setQuantity((q) => Math.max(1, Math.min(10, q + delta)));
+    const max = remaining !== null ? Math.max(1, Math.min(10, remaining)) : 10;
+    setQuantity((q) => Math.max(1, Math.min(max, q + delta)));
   }
 
   function handleApplyPromo() {
@@ -108,6 +116,7 @@ export default function OrderDetail() {
   }
 
   async function handleConfirmAndPay() {
+    if (!event || orderDisabled) return;
     setSubmitting(true);
     try {
       // NOTE: this inserts directly from the client as a placeholder. Before
@@ -174,8 +183,12 @@ export default function OrderDetail() {
           eventImageUrl: event.image_url ?? '',
         },
       });
-    } catch (err) {
-      Alert.alert('Payment failed', 'Something went wrong. Please try again.');
+    } catch (err: any) {
+      if (typeof err?.message === 'string' && err.message.includes('SOLD_OUT')) {
+        Alert.alert('Sold out', 'This event just sold out. Please pick a different event.');
+      } else {
+        Alert.alert('Payment failed', 'Something went wrong. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -292,12 +305,12 @@ export default function OrderDetail() {
           <Text style={styles.priceValue}>${total.toFixed(2)}</Text>
         </View>
         <Tappable
-          style={[styles.payButton, submitting && styles.payButtonDisabled]}
+          style={[styles.payButton, (submitting || orderDisabled) && styles.payButtonDisabled]}
           onPress={handleConfirmAndPay}
-          scaleTo={0.97}
+          scaleTo={submitting || orderDisabled ? 1 : 0.97}
         >
           <Text style={styles.payButtonText}>
-            {submitting ? 'Processing…' : 'Confirm & Pay'}
+            {isPast ? 'Event Ended' : isSoldOut ? 'Sold Out' : submitting ? 'Processing…' : 'Confirm & Pay'}
           </Text>
         </Tappable>
       </View>

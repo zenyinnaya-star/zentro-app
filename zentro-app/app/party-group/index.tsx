@@ -73,16 +73,33 @@ export default function PartyGroup() {
     } = await supabase.auth.getUser();
     const inviteCode = Math.random().toString(36).slice(2, 8).toUpperCase();
 
-    const { data, error } = await supabase
+    const { data: newGroup, error } = await supabase
       .from('party_groups')
       .insert({ event_id: eventId, name: 'My Party Group', invite_code: inviteCode, created_by: user?.id })
       .select()
       .single();
 
-    if (error) {
-      Alert.alert('Could not create group', error.message);
+    if (error || !newGroup) {
+      Alert.alert('Could not create group', error?.message ?? 'Please try again.');
       return;
     }
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('username, avatar_url')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      await supabase.from('party_group_members').insert({
+        group_id: newGroup.id,
+        user_id: user.id,
+        username: profile?.username ?? user.email ?? 'You',
+        avatar_url: profile?.avatar_url ?? null,
+        status: 'joined',
+      });
+    }
+
     load();
   }
 
